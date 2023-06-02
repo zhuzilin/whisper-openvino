@@ -7,7 +7,7 @@ from torch import Tensor
 from torch import nn
 
 from huggingface_hub import hf_hub_download
-from openvino.runtime import Core
+from openvino.runtime import Core, ReturnPolicy
 
 from .transcribe import transcribe as transcribe_function
 from .decoding import detect_language as detect_language_function, decode as decode_function
@@ -39,8 +39,12 @@ class OpenVinoAudioEncoder(nn.Module):
         self.model = self.core.compile_model(self._model, "CPU")
 
     def forward(self, x: Tensor):
-        result = self.model.infer_new_request(x.numpy())
-        return torch.from_numpy(next(iter(result.values())))
+        result = self.model(
+            x,
+            shared_memory=True,
+            return_policy=ReturnPolicy.VIEW,
+        )
+        return torch.from_numpy(result[0])
 
 
 class OpenVinoTextDecoder(nn.Module):
@@ -55,17 +59,17 @@ class OpenVinoTextDecoder(nn.Module):
         self.model = self.core.compile_model(self._model, "CPU")
 
     def forward(self, x: Tensor, xa: Union[Tensor, np.ndarray], kv_cache: Tensor, offset: int):
-        if torch.is_tensor(xa):
-            xa = xa.numpy()
-        output, kv_cache = self.model.infer_new_request(
+        output = self.model(
             {
-                "tokens": x.numpy(),
+                "tokens": x,
                 "audio_features": xa,
                 "kv_cache": kv_cache,
                 "offset": np.array(offset, dtype=int),
-            }
-        ).values()
-        return torch.from_numpy(output), kv_cache
+            },
+            shared_memory=True,
+            return_policy=ReturnPolicy.VIEW,
+        )
+        return torch.from_numpy(output["logits"]), output["output_kv_cache"]
 
 
 class Whisper(nn.Module):
