@@ -7,7 +7,7 @@ from torch import Tensor
 from torch import nn
 
 from huggingface_hub import hf_hub_download
-from openvino.runtime import Core, ReturnPolicy
+from openvino.runtime import Core
 
 from .transcribe import transcribe as transcribe_function
 from .decoding import detect_language as detect_language_function, decode as decode_function
@@ -41,8 +41,8 @@ class OpenVinoAudioEncoder(nn.Module):
     def forward(self, x: Tensor):
         result = self.model(
             x,
-            shared_memory=True,
-            return_policy=ReturnPolicy.VIEW,
+            share_inputs=True,
+            share_outputs=True,
         )
         return torch.from_numpy(result[0])
 
@@ -66,8 +66,8 @@ class OpenVinoTextDecoder(nn.Module):
                 "kv_cache": kv_cache,
                 "offset": np.array(offset, dtype=int),
             },
-            shared_memory=True,
-            return_policy=ReturnPolicy.VIEW,
+            share_inputs=True,
+            share_outputs=True,
         )
         return torch.from_numpy(output["logits"]), output["output_kv_cache"]
 
