@@ -4,4 +4,4 @@ tqdm
 more-itertools
 transformers>=4.19.0
 ffmpeg-python==0.2.0
-openvino
+openvino>=2023.1.0
